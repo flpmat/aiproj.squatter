@@ -1,0 +1,1 @@
+Main-Class: au.edu.unimelb.ai.squatter.main

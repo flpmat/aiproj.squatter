@@ -1,0 +1,198 @@
+                         ━━━━━━━━━━━━━━━━━━━━━
+                                 README
+
+
+                          Andre Peric Tavares
+                         ━━━━━━━━━━━━━━━━━━━━━
+
+
+Table of Contents
+─────────────────
+
+1 Authors
+2 Classes
+.. 2.1 Action
+.. 2.2 Board and Square
+.. 2.3 Other classes
+3 Flow of execution
+4 Evaluation strategies
+5 Performance
+6 Optimizations
+
+
+1 Authors
+═════════
+
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+   Name                        user         id 
+  ─────────────────────────────────────────────
+   Andre Peric Tavares         aperic   706525 
+   Felipe Matheus Costa Silva  fcosta1  706279 
+  ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+
+2 Classes
+═════════
+
+2.1 Action
+──────────
+
+  An Action encapsulates a move in the game. Its main purpose is to make
+  it possible to undo moves and reverse to the previous game state. This
+  is crucial to the Alpha Beta algorithm as it has to search through the
+  state space and it is necessary to get to previous configurations of
+  the board.
+
+  Besides that, by not storing the entire board for each action, we save
+  space.
+
+
+2.2 Board and Square
+────────────────────
+
+  We represent the Board as an uni-dimensional array of squares.  Each
+  square object can assume the following the values WHITE, BLACK,
+  INVALID, EMPTY or DEAD.
+
+  The invalid squares represent the borders of the board, i.e., the
+  squares immediately after the limits of valid moves. Storing these
+  invalid parts is convenient for detecting non enclosed regions.
+
+  Dead squares represent positions of captured territory.
+
+
+2.3 Other classes
+─────────────────
+
+  The other classes are AndrePlayer, AlphaBetaPruning, Evaluation and
+  FloodFill (see pseudocode in this document for details).
+
+
+3 Flow of execution
+═══════════════════
+
+  The sequence of the code is straightforward: makeMove() calls the
+  AlphaBetaPruning class, that executes the usual algorithm creating
+  Action objects to revert the configuration of the board and calls the
+  Evaluation class when needed.
+
+  Detecting captures is probably the trickiest part. It is performed by
+  the FloodFill algorithm, which is actually our variation of the
+  algorithm that has this name.
+
+  The main idea is to check, on each move, the north, south, west and
+  east neighbors of the move position and run the algorithm on it.
+
+  When FloodFill is run, the opponent and empty squares are added to
+  queue. If, however, at any moment an invalid square is found (that is,
+  the boundary of the board, known as "wall" in some games), it
+  terminates because that means that the region is not enclosed.
+
+  If the queue is at some moment empty, the move resulted in a
+  capture. So the captured squares are marked as "-".
+
+  ┌────
+  │ checkCapturedPieces(square){
+  │   for (neighbor of square in listOfNorthSouthWestEastNeighours){
+  │     floodfill(neighbor)
+  │   }
+  │ }
+  │ 
+  │ floodfill(square){
+  │         Q = Ø // queue
+  │         V = Ø // visited squares
+  │ 
+  │         while Q != Ø 
+  │             current_piece = Q.first
+  │             Q.pop
+  │             if (!addToQueueIfSquareIsNotWallNorOwnPiece(current_pieces.north)) return false;
+  │             if (!addToQueueIfSquareIsNotWallNorOwnPiece(current_pieces.south)) return false;
+  │             if (!addToQueueIfSquareIsNotWallNorOwnPiece(current_pieces.west)) return false;
+  │             if (!addToQueueIfSquareIsNotWallNorOwnPiece(current_pieces.east)) return false;
+  │         end
+  │ }
+  │ 
+  │ // returns false if square is wall, otherwise
+  │ // adds square to queue if it is empty or an opponent piece
+  │ addToQueueIfSquareIsNotWallNorOwnPiece{
+  │   // implementation omitted
+  │ }
+  └────
+
+  The actual implementation returns an array of captured pieces (if
+  any).
+
+
+4 Evaluation strategies
+═══════════════════════
+
+The evaluation strategy consisted of applying four different features
+to the board: 
+    (1) Punctuation difference between pieces of the running player
+    (AndrePlayer) and opponent pieces (RandomPlayer): the most important
+    feature given the fact that earning points is the main goal.
+    (2) Distance of each White or Black piece to the border: the wider
+    the enclosure the player makes, the higher the points earned. 
+    (3) Distance to black pieces: allows AndrePlayer to make moves into
+    safer areas, where RandomPlayer has not yet made many moves.
+    (4) Penal Pieces: returns a penalty associated with regions that have
+    too many (more than 4) pieces of the colour of the player running
+    the evaluation.
+These features are used in a linear combination. Each one of them bears
+a different weight: 1500 for punctuation difference and 3, 4, -2 for
+distance to border, distance to black pieces and penal pieces.
+These weight values where obtained from analysing the following facts:
+    - The evaluation functions returned values from 0 to 1000 to the
+    feature (2), 0 to 100 to feature (3) and 0 to 5 to the feature (4).
+    The values from evaluation (2) are divided by 10 on the return;
+    - In the worst case, features (2), (3) and (4) should not be more
+    important than (1). Their weight was then determined to be at most
+    5 ((100 + 100 - 5) * 5 = 975). 
+For aquiring acutal weight values, the following strategie was used:
+    - Make permutations with repetitions of size 3 using the vector
+    {1, 2, 3, 4, 5}. The number of possibilities is 125.
+    - For each possibility, execute the game 100 times, saving the
+    number of victories and total points made by white and black.
+    - After testing, the results showed that, while many of these
+    possiblities led to 100% winning, the one who led to the biggest
+    average puntuaction by white was 3, 4 and -2 for features (2), (3)
+    and (4) respectively.
+
+5 Performance
+═════════════
+
+The performance of our game was tested by applying different depths to
+the Alphabeta Pruning algorithm. We tested three different setups: depth
+1 for the first 5, 10 and 15 moves (the next moves having search depht
+of 5). 
+Considering the execution constraints for this project (maxximum
+heap size of 1034 kb and time limits), the first setup failed as it took
+to long to complete. 
+The second and third setups both had full success and, while the setup with
+depth search of 1 for the first 15 moves had a quicker execution, it 
+fell short of acquiring the most points (a maximum average of 7.75 
+for the 100 executions at each one of the 125 weight possibilities). The
+depth search of 10, though, had a maximum points average of 8.93 and
+thus is the setup chosen for our game's Alphabeta Pruning search.
+
+6 Optimizations
+═══════════════
+
+  Some decisions that we took lead to better performance:
+
+  • As stated, the usage of Action to represent moves avoid the need of
+    storing the entire board configuration for each move that the Alpha
+    Beta Pruning algorithm analyse.
+  • The representation of Board is uni-dimensional, which lead to faster
+    computations.
+  • The depth of the Alpha Beta Pruning depends on the turn. In the
+    beginning of the game, the depth is lesser because the set of
+    possible configurations to be searched is big. For later turns, the
+    depth is increased.
+  • We also tried to improve performance by using short to store
+    position of the board and Enum to represent the values that square
+    can assume. However, after investigating how Java stores the values,
+    we realised that it does not really help in terms of space.
+
+  However, in general we decided to avoid over-complicated optimization,
+  favoring elegance of implementation and clearer code.
